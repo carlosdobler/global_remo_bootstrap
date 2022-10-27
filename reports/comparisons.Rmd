@@ -1,0 +1,99 @@
+---
+title: "Comparisons"
+author: "Carlos Dobler"
+date: "2022-10-27"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+source(here::here("scripts/00_setup.R"))
+
+
+# Load data
+dir_results <- "/mnt/bucket_mine/results/global_remo_bootstrap"
+
+dir_results %>% 
+  list.files(full.names = T) %>% 
+  map(read_ncdf) -> l_s
+
+
+fn_diff_plot <- function(m){
+  
+  m %>% 
+    as_tibble() %>% 
+    pivot_longer(-c(lon, lat), names_to = "stat", values_to = "val") %>% 
+    
+    ggplot(aes(lon, lat, fill = val)) +
+    geom_raster() +
+    facet_wrap(~stat, ncol = 2) +
+    colorspace::scale_fill_binned_diverging(palette = "Green-Brown",
+                                            na.value = "transparent",
+                                            n.breaks =11,
+                                            name = "difference\n(days)",
+                                            guide = guide_coloursteps(barheight = 14,
+                                                                      barwidth = 0.5)) +
+    coord_equal() +
+    theme(axis.title = element_blank())
+}
+
+
+
+```
+
+### REMO ensemble vs. WHOLE ensemble
+
+```{r}
+
+l_s[[4]] - l_s[[2]] -> s_diff
+
+fn_diff_plot(s_diff)
+
+
+```
+
+
+### RegCM ensemble vs. WHOLE ensemble
+
+```{r}
+
+l_s[[3]] - l_s[[2]] -> s_diff
+
+fn_diff_plot(s_diff)
+
+
+```
+
+
+### RegCM ensemble vs. REMO ensemble
+
+```{r}
+
+l_s[[3]] - l_s[[4]] -> s_diff
+
+fn_diff_plot(s_diff)
+
+```
+
+
+### REMO ensemble vs. REMO bootstrapped ensemble
+
+```{r}
+
+l_s[[4]] - l_s[[1]] -> s_diff
+
+fn_diff_plot(s_diff)
+
+```
+
+
+### REMO bootstrapped ensemble vs. WHOLE ensemble
+
+```{r}
+
+l_s[[1]] - l_s[[2]] -> s_diff
+
+fn_diff_plot(s_diff)
+
+```
