@@ -42,7 +42,7 @@ fn_diff_plot <- function(m){
 
 ```
 
-### REMO ensemble vs. WHOLE ensemble
+### 1. REMO ensemble vs. WHOLE ensemble
 
 ```{r}
 
@@ -54,7 +54,7 @@ fn_diff_plot(s_diff)
 ```
 
 
-### RegCM ensemble vs. WHOLE ensemble
+### 2. RegCM ensemble vs. WHOLE ensemble
 
 ```{r}
 
@@ -66,7 +66,7 @@ fn_diff_plot(s_diff)
 ```
 
 
-### RegCM ensemble vs. REMO ensemble
+### 3. RegCM ensemble vs. REMO ensemble
 
 ```{r}
 
@@ -77,7 +77,7 @@ fn_diff_plot(s_diff)
 ```
 
 
-### REMO ensemble vs. REMO bootstrapped ensemble
+### 4. REMO ensemble vs. REMO bootstrapped ensemble
 
 ```{r}
 
@@ -88,7 +88,7 @@ fn_diff_plot(s_diff)
 ```
 
 
-### REMO bootstrapped ensemble vs. WHOLE ensemble
+### 5. REMO bootstrapped ensemble vs. WHOLE ensemble
 
 ```{r}
 
