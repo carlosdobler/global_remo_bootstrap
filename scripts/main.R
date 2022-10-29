@@ -56,16 +56,101 @@ dir_raw_data <- str_glue("{dir_pers_disk}/raw_data")
 
 
 
+# MODELS TABLE ------------------------------------------------------------------------------------
+
+tb_models <- 
+  dir_raw_data %>% 
+  list.files() %>% 
+  str_split("_", simplify = T) %>% 
+  .[,c(6,3)] %>% 
+  as_tibble(.name_repair = ~c("rcm", "gcm")) %>%
+  {unique(.[c("rcm", "gcm")])}
+
+
+tb_models <- 
+  tb_models %>% 
+  mutate(calendar = case_when(str_detect(gcm, "Had") ~ 360,
+                              str_detect(rcm, "REMO") & str_detect(gcm, "Had", negate = T) ~ 365.25,
+                              str_detect(rcm, "RegCM") & str_detect(gcm, "MPI") ~ 365.25,
+                              str_detect(rcm, "RegCM") & str_detect(gcm, "Nor") ~ 365))
+
+
+
+
+
+
+# CDO PRE-PROCESS ---------------------------------------------------------------------------------
+
+set_units(32, degC) %>% 
+  set_units(K) %>% 
+  drop_units() -> lim_k
+
+
+dir_derived <- str_glue("{dir_pers_disk}/derived")
+
+{
+  
+  # dir.create(dir_derived)
+  # 
+  # future_pwalk(tb_models[3:6,], function(rcm, gcm, ...){
+  #   
+  #   ff <- 
+  #     dir_raw_data %>% 
+  #     list.files() %>% 
+  #     str_subset(rcm) %>% 
+  #     str_subset(gcm) %>% 
+  #     {str_glue("{dir_raw_data}/{.}")} %>% 
+  #     str_flatten(" ")
+  #   
+  #   outfile <- 
+  #     str_glue("{dir_derived}/days-gec-32deg_{rcm}_{gcm}.nc")
+  #   
+  #   str_glue("cdo -yearsum -gec,{lim_k} -cat {ff} {outfile}") %>% 
+  #     system()
+  #   
+  # })
+  
+}
+
+
+
+
+# READ DATA ---------------------------------------------------------------------------------------
+
+# (read in the order of the table)
+
+l_s <- 
+  pmap(tb_models, function(rcm, gcm, ...){
+    
+    dir_derived %>% 
+      list.files(full.names = T) %>%
+      str_subset(rcm) %>% 
+      str_subset(gcm) %>% 
+      read_ncdf(proxy = F)
+    
+  }) %>% 
+  map(function(s){
+    
+    s %>% 
+      st_set_dimensions("time",
+                        values = st_get_dimension_values(s, "time") %>% 
+                          year()) %>% 
+      drop_units() %>% 
+      setNames("n_days")
+  })
+
+
+
 
 # TILE DATA ---------------------------------------------------------------------------------------
 
-f <-
-  str_glue("{dir_pers_disk}/raw_data") %>%
-  list.files(full.names = T) %>%
-  str_subset("REMO") %>% 
-  .[1]
-
-source("scripts/tiling.R")
+# f <-
+#   str_glue("{dir_pers_disk}/raw_data") %>%
+#   list.files(full.names = T) %>%
+#   str_subset("REMO") %>% 
+#   .[1]
+# 
+# source("scripts/tiling.R")
 
 
 
@@ -90,31 +175,237 @@ thresholds %>%
 
 
 
-# MODELS TABLE ------------------------------------------------------------------------------------
 
-dir_raw_data %>% 
-  list.files() %>% 
-  str_split("_", simplify = T) %>% 
-  .[,c(6,3)] %>% 
-  as_tibble(.name_repair = ~c("rcm", "gcm")) %>%
-  {unique(.[c("rcm", "gcm")])} -> tb_models
+# *****
+
+fn_statistics <- function(ts, index = seq_along(ts), j = F){
+  
+  if(any(is.na(ts))){
+    
+    c(mean = NA,
+      p05 = NA, 
+      p50 = NA,
+      p95 = NA)
+    
+  } else {
+    
+    sub_ts <- ts[index]
+    
+    if(isTRUE(j)){
+      sub_ts <- jitter(sub_ts)
+    }
+    
+    c(mean = mean(sub_ts),
+      quantile(sub_ts, c(0.05, 0.5, 0.95)) %>% setNames(c("p05", "p50", "p95")))
+    
+  }
+}
 
 
-tb_models %>% 
-  mutate(calendar = case_when(str_detect(gcm, "Had") ~ "360",
-                              str_detect(rcm, "REMO") & str_detect(gcm, "Had", negate = T) ~ "gregorian",
-                              str_detect(rcm, "RegCM") & str_detect(gcm, "MPI") ~ "gregorian",
-                              str_detect(rcm, "RegCM") & str_detect(gcm, "Nor") ~ "noleap")) -> tb_models
 
+
+
+
+walk(c("1.0", "2.0", "3.0"), function(wl_){
+  
+  # wl_ <- "2.0"
+  
+  print(str_glue(" "))
+  print(str_glue("Processing WL {wl_}"))
+  
+  
+  
+  # SLICE WL
+  
+  print(str_glue("Slicing"))
+  
+  l_s_wl <- 
+    future_map2(l_s, seq(1,6), function(s, i){
+      
+      rcm <- tb_models$rcm[i]
+      gcm <- tb_models$gcm[i]
+      
+      thres_val <- 
+        thresholds %>% 
+        filter(Model == gcm) %>% 
+        filter(wl == wl_) %>% 
+        pull(value)
+      
+      s %>% 
+        filter(time >= thres_val - 10,
+               time <= thres_val + 10)
+      
+    })
+  
+  
+  
+  # CALCULATE STATS
+  
+  name_wl <- 
+    wl_ %>% 
+    str_replace("[.]", "p")
+  
+  
+  # WHOLE ENSEMBLE - NO BOOTSTRAP
+  
+  l_s_wl %>% 
+    {do.call(c, c(., along = "time"))} %>%
+    
+    st_apply(c(1,2), 
+             fn_statistics,
+             FUTURE = T,
+             .fname = "stats") %>% 
+    aperm(c(2,3,1)) %>% 
+    split("stats") -> s_result
+  
+  
+  func_write_nc_notime(s_result,
+                       str_glue("{dir_bucket_mine}/results/global_remo_bootstrap/days-above-32C_stats-reg-all_{name_wl}C.nc"))
+  
+  
+  # *****************
+  
+  
+  # RegCM ENSEMBLE - NO BOOTSTRAP
+  
+  l_s_wl %>% 
+    .[str_which(tb_models$rcm, "RegCM")] %>%
+    {do.call(c, c(., along = "time"))} %>%
+    
+    st_apply(c(1,2), 
+             fn_statistics,
+             FUTURE = T,
+             .fname = "stats") %>% 
+    aperm(c(2,3,1)) %>% 
+    split("stats") -> s_result
+  
+  func_write_nc_notime(s_result, 
+                       str_glue("{dir_bucket_mine}/results/global_remo_bootstrap/days-above-32C_stats-reg-regcm_{name_wl}C.nc"))
+  
+  
+  
+  # *****************
+  
+  
+  # REMO ENSEMBLE - NO BOOTSTRAP
+  
+  l_s_wl %>% 
+    .[str_which(tb_models$rcm, "REMO")] %>%
+    {do.call(c, c(., along = "time"))} %>%
+    
+    st_apply(c(1,2), 
+             fn_statistics,
+             FUTURE = T,
+             .fname = "stats") %>% 
+    aperm(c(2,3,1)) %>% 
+    split("stats") -> s_result
+  
+  func_write_nc_notime(s_result, 
+                       str_glue("{dir_bucket_mine}/results/global_remo_bootstrap/days-above-32C_stats-reg-remo_{name_wl}C.nc"))
+  
+  
+  
+  # *****************
+  
+  
+  # REMO ENSEMBLE - STD BOOTSTRAP
+  
+  l_s_wl %>% 
+    .[str_which(tb_models$rcm, "REMO")] %>%
+    {do.call(c, c(., along = "time"))} %>%
+    
+    st_apply(c(1,2), 
+             function(x){
+               
+               map_df(1:300, function(...){
+                 fn_statistics(x, sample(length(x), length(x), replace = T), j = T)
+               }) %>% 
+                 summarize(across(everything(), ~mean(.x) %>% round())) %>% 
+                 unlist()
+               
+             },
+             FUTURE = T,
+             .fname = "stats") %>% 
+    aperm(c(2,3,1)) %>% 
+    split("stats") -> s_result # ~20 min 300 iterations
+  
+  func_write_nc_notime(s_result, 
+                       str_glue("{dir_bucket_mine}/results/global_remo_bootstrap/days-above-32C_stats-bootstd-remo_{name_wl}C.nc"))
+  
+  
+  
+  # *****************
+  
+  
+  # REMO ENSEMBLE - PARAM BOOTSTRAP
+  c(360, 365.25, 365.25) %>% mean()
+  
+  fn_summarize <- function(x){
+    
+    if(all(is.na(x))){
+      c(`5%` = NA, mean = NA, `95%` = NA)
+    } else {
+      c(mean = mean(x),
+        quantile(x, c(0.05, 0.95))) %>% 
+        .[c(2,1,3)]
+    }
+    
+  }
+  
+  
+  tictoc::tic()
+  l_s_wl %>% 
+    .[str_which(tb_models$rcm, "REMO")] %>%
+    {do.call(c, c(., along = "time"))} %>%
+    
+    st_apply(c(1,2), 
+             function(x){
+               
+               map_df(1:300, function(...){
+                 fn_statistics(rbinom(length(x), 365, mean(x/365)))
+               }) %>% 
+                 summarize(across(everything(), ~fn_summarize(.x) %>% round())) %>% 
+                 unlist()
+               
+             },
+             FUTURE = T,
+             .fname = "stats") %>% 
+    aperm(c(2,3,1)) %>% 
+    split("stats") -> s_result # 30 min
+  tictoc::toc()
+  
+  func_write_nc_notime(s_result, 
+                       str_glue("{dir_bucket_mine}/results/global_remo_bootstrap/days-above-32C_stats-bootparam-remo_{name_wl}C.nc"))
+  
+  
+  
+})
+
+
+
+l_s_wl %>% 
+  .[str_which(tb_models$rcm, "REMO")] %>%
+  {do.call(c, c(., along = "time"))} %>% 
+  .[,200, seq(20, 100, length.out = 10), ] %>% 
+  as_tibble() -> tb
+
+saveRDS(tb, "tb_tmp.rds")
+
+
+
+
+
+foo$n_days %>% hist()
+rbinom(21*3, 365, mean(foo$n_days/365)) %>% hist()
 
 
 
 
 # PRE-PROCESS FOR BOOTSTRAP -----------------------------------------------------------------------
 
-set_units(32, degC) %>% 
-  set_units(K) %>% 
-  drop_units() -> lim_k
+# set_units(32, degC) %>% 
+#   set_units(K) %>% 
+#   drop_units() -> lim_k
 
 
 dir_tiles <- str_glue("{dir_pers_disk}/tiles")
@@ -235,7 +526,7 @@ for(i in seq_len(nrow(chunks_ind))){
       
     }) -> l_s_wl
     
-   
+    
     
     
     # CALCULATE STATS -----------------------------------------------------------------------------
@@ -414,15 +705,14 @@ unlink(dir_tiles, recursive = T)
 
 
 
-
-
-
+l_s_wl[[1]][,200,20,] %>% pull() %>% as.vector() -> ts
+foo$n_days -> ts
 
 hist(ts)
-dbinom(0:10, 365, mean(ts)/365) %>% plot()
+dbinom(0:10, 365, mean(ts/365)) %>% plot()
 
 1-pbinom(4, 365, mean(ts/365)) # prob of having x days > thres or more 
-pbinom(0:15, 365, mean(ts/365)) %>% plot() # theorical
+pbinom(seq(min(ts), max(ts), length.out = 100), 365, mean(ts/365)) %>% plot() # theorical
 ecdf(ts) %>% plot() # empirical
 
 qbinom(0.95, 365, mean(ts/365)) # days > thres that happen x*100 of times
@@ -430,7 +720,48 @@ qbinom(seq(0.01,0.99,0.05), 365, mean(ts/365)) %>% plot() # theoretical
 quantile(ts, seq(0.1, 0.99, 0.05)) %>% plot() # empirical
 
 
-rbinom(126, 365, mean(ts)/365) %>% hist()
+rbinom(126, 365, mean(ts/365)) %>% hist()
+
+
+
+
+tibble(d = seq(min(ts), max(ts), length.out = 100),
+       p = pbinom(d, 365, mean(ts/365)),
+       e = ecdf(ts)(d)) -> tb_modeled
+
+
+tibble(d = ts,
+       p = ecdf(ts)(ts)) -> tb_observed
+
+ggplot() +
+  geom_line(data = tb_modeled, aes(x = d, y = p)) +
+  geom_line(data = tb_observed, aes(x = d, y = p))
+       
+       
+tb_modeled %>% 
+  ggplot(aes(x = d)) +
+  geom_line(aes(y = e)) +
+  geom_line(aes(y = p), linetype = "3232")
+
+
+
+
+tibble(q = seq(0.01,0.99,0.05),
+       d = qbinom(seq(0.01,0.99,0.05), 365, mean(ts/365))) %>% 
+  
+  ggplot()
+
+
+
+
+tb %>% 
+  mutate(lat = round(lat, 1)) %>% 
+  filter(lat == 26.1) -> foo 
+
+ggplot(foo, aes(n_days)) +
+  stat_ecdf() +
+# stat_function(fun = "dbinom", args = list(size = 365, prob = mean(foo$n_days/365)))
+# facet_wrap(~lat, ncol = 2, scales = "free")
 
 
 
@@ -445,23 +776,32 @@ rbinom(126, 365, mean(ts)/365) %>% hist()
 
 
 
+ggplot(foo, aes(n_days)) +        # Draw hist & density with count on y-axis
+  geom_histogram(binwidth = 5) +
+  geom_density(aes(y = ..density.. * (nrow(foo) * 5)))
+
+
+seq(min(ts)-10, 
+    max(ts)+10,
+    length.out = 100) %>%
+  round() %>% 
+  dbinom(size = 365,
+         prob = mean(ts/365))
+
+dbinom(((min(ts))-extension):((max(ts))+extension), 365, mean(ts/365))
+
+plot(density(ts, bw = 5)$y * length(ts) * 5)
+
+range(ts) %>% diff() %>% {./8} %>% round() -> ext
+tibble(d = seq((min(ts)-ext),(max(ts)+ext)),
+       m = dbinom(d, 365, mean(ts/365)),
+       e = density(ts, n = length(d), from = min(d), to = max(d))$y) %>%
+  
+  ggplot(aes(x = d)) +
+  geom_line(aes(y = m)) +
+  geom_line(aes(y = e), linetype = "2222")
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+tibble(t = ts) %>% 
+  ggplot(aes(t)) + geom_density()

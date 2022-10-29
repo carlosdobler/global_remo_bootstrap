@@ -6,7 +6,7 @@ output: github_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE)
 
 source(here::here("scripts/00_setup.R"))
 
@@ -30,8 +30,8 @@ fn_diff_plot <- function(m){
     facet_wrap(~stat, ncol = 2) +
     colorspace::scale_fill_binned_diverging(palette = "Green-Brown",
                                             na.value = "transparent",
-                                            n.breaks =11,
-                                            name = "difference\n(days)",
+                                            n.breaks = 11,
+                                            name = "days",
                                             guide = guide_coloursteps(barheight = 14,
                                                                       barwidth = 0.5)) +
     coord_equal() +
@@ -42,58 +42,142 @@ fn_diff_plot <- function(m){
 
 ```
 
-### 1. REMO ensemble vs. WHOLE ensemble
+Here I compare different ensembles of REMO/RegCM model output corresponding to days above 32 C in a 2C warming level over Europe.
+
+The following three set of maps compare "raw" output between REMO (3 members), RegCM (3 members), and REMO+RegCM (6 members) ensembles. I show differences in the mean count of days above threshold, as well as percentiles 5th, 50th (median) and 95th.
 
 ```{r}
 
-l_s[[4]] - l_s[[2]] -> s_diff
+l_s[[5]] - l_s[[3]] -> s_diff
 
-fn_diff_plot(s_diff)
+fn_diff_plot(s_diff) + 
+  labs(title = "Fig. 1. Difference between [REMO] and [REMO+RegCM] ensembles")
 
 
 ```
 
 
-### 2. RegCM ensemble vs. WHOLE ensemble
+```{r}
+
+l_s[[4]] - l_s[[3]] -> s_diff
+
+fn_diff_plot(s_diff) +
+  labs(title = "Fig. 2. Difference between [RegCM] and [REMO+RegCM] ensembles")
+
+
+```
+
+
+```{r}
+
+l_s[[4]] - l_s[[5]] -> s_diff
+
+fn_diff_plot(s_diff) +
+  labs(title = "Fig. 3. Difference between [RegCM] and [REMO] ensembles")
+
+```
+
+
+In the next set of maps I compare some of the previous maps with two bootstrapped experiments conducted with REMO. The first experiment represents a regular bootstrap. For each cell, I resampled the original sample of 63 observations (21 years x 3 REMO models) with replacement 1000 times. This means: imagine I have a bag of 63 balls, each one representing one observation (1 observation = the count of days above 32C in 1 year for 1 model). I randomly pick one ball, register its value, and return it to the bag. I do that 63 times. Then I calculate the mean and percentiles 5th, 50th and 95th out of those 63 observations. Then I re-do that 1000 times. Lastly, I calculate the mean of those 1000 means, 5th, 50th, and 95th percentiles. (Note: those 1000 means (or any of the percentiles) are somewhat normally distributed. This means that I could also calculate the 2.5th and 97.5th percentiles of those 1000 means to obtain my 95% confidence interval. In other words, I could say something like, "based on REMO, the mean count of days above 32C is between X (the 2.5th perc.) and Y (the 97.5th perc.) with 95% confidence").
+
+
+```{r}
+
+l_s[[5]] - l_s[[2]] -> s_diff
+
+fn_diff_plot(s_diff) +
+  labs(title = "Fig. 4. Difference between [REMO] and\n[STD. BOOTSTRAPPED REMO] ensembles")
+
+```
+
 
 ```{r}
 
 l_s[[3]] - l_s[[2]] -> s_diff
 
-fn_diff_plot(s_diff)
-
+fn_diff_plot(s_diff) +
+  labs(title = "Fig. 5. Difference between [REMO+RegCM]\nand [STD. BOOTSTRAPPED REMO] ensembles")
 
 ```
 
 
-### 3. RegCM ensemble vs. REMO ensemble
+
+As a second experiment I conducted a parametric bootstrapping. For each cell, I fitted a binomial distribution to its 63 values. I'm using binomial because our underlying variable is binomial: days either exceed the threshold (=1), or they don't (=0). Once fitted, I generate 1000 samples of 63 observations based on that distribution. And then, same as before, for each of the 1000 iterations, I calculate the mean and percentiles of the 63 observations, to then calculate the mean of those 1000 statistics. 
+
+Note: when fitting a distribution we assume our data (the 63 observations) is "incomplete"; it's just a sample out of a larger "population". A fitted distribution essentially represents how that population looks like. The following figure shows nine examples comparing the empirical ("observed") distribution of the 63 observations found in a cell (solid line) and their fitted distribution (dashed).
 
 ```{r}
 
-l_s[[3]] - l_s[[4]] -> s_diff
+here::here("tb_tmp.rds") %>% readRDS() -> tb
 
-fn_diff_plot(s_diff)
+tb %>% 
+  group_by(lat) %>% 
+  nest() %>%
+  pmap(function(data, ...){
+    
+    range(data$n_days) %>% 
+      diff() %>% 
+      {./8} %>% 
+      round() -> ext
+  
+    lim_min <- min(data$n_days)-ext
+    lim_min <- ifelse(lim_min < 0, 0, lim_min) 
+    
+    # tibble(count_days = seq(lim_min,(max(data$n_days)+ext)),
+    #        
+    #        fitted = dbinom(count_days, 
+    #                        365, 
+    #                        mean(data$n_days/365)),
+    #        
+    #        observed = density(data$n_days, 
+    #                           n = length(count_days), 
+    #                           from = min(count_days), 
+    #                           to = max(count_days))$y) %>%
+    #   
+    #   ggplot(aes(x = count_days)) +
+    #   geom_line(aes(y = fitted), linetype = "2222") +
+    #   geom_line(aes(y = observed)) +
+    #   theme(axis.title.y = element_blank(),
+    #         axis.ticks.y = element_blank(),
+    #         axis.text.y = element_blank())
+    
+    tibble(count_days = seq(min(data$n_days), max(data$n_days), length.out = 100),
+           fitted = pbinom(count_days, 365, mean(data$n_days/365)),
+           observed = ecdf(data$n_days)(count_days)) %>% 
+    
+      ggplot(aes(x = count_days)) +
+      geom_line(aes(y = fitted), linetype = "2222") +
+      geom_line(aes(y = observed)) +
+      labs(y = "probability")
+
+  }) -> l_plots
+  
+l_plots %>% 
+  .[1:9] %>% 
+  patchwork::wrap_plots(ncol = 3)
+
 
 ```
 
+As mentioned above, from the fitted distribution I drew 1000 random samples of 63 observations and calculated the means of the 1000 means and percentiles. See below how that ensemble compares with the raw REMO ensemble.
 
-### 4. REMO ensemble vs. REMO bootstrapped ensemble
 
 ```{r}
 
-l_s[[4]] - l_s[[1]] -> s_diff
+l_s[[5]] - select(l_s[[1]], c(2,5,8,11)) -> s_diff
 
-fn_diff_plot(s_diff)
+fn_diff_plot(s_diff) +
+  labs(title = "Fig. 6. Difference between [REMO] and\n[PARAM. BOOTSTRAPPED REMO] ensembles")
 
 ```
 
-
-### 5. REMO bootstrapped ensemble vs. WHOLE ensemble
 
 ```{r}
 
-l_s[[1]] - l_s[[2]] -> s_diff
+l_s[[3]] - select(l_s[[1]], c(2,5,8,11)) -> s_diff
 
-fn_diff_plot(s_diff)
+fn_diff_plot(s_diff) +
+  labs(title = "Fig. 7. Difference between [REMO+RegCM]\nand [PARAM. BOOTSTRAPPED REMO] ensembles")
 
 ```
+
