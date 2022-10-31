@@ -206,9 +206,9 @@ fn_statistics <- function(ts, index = seq_along(ts), j = F){
 
 
 
-walk(c("1.0", "2.0", "3.0"), function(wl_){
+walk(c("1.0", "2.0", "3.0")[3], function(wl_){
   
-  # wl_ <- "2.0"
+  # wl_ <- "3.0"
   
   print(str_glue(" "))
   print(str_glue("Processing WL {wl_}"))
@@ -260,7 +260,7 @@ walk(c("1.0", "2.0", "3.0"), function(wl_){
   
   
   func_write_nc_notime(s_result,
-                       str_glue("{dir_bucket_mine}/results/global_remo_bootstrap/days-above-32C_stats-reg-all_{name_wl}C.nc"))
+                       str_glue("{dir_bucket_mine}/results/global_remo_bootstrap/{dom}_days-above-32C_stats-reg-all_{name_wl}C.nc"))
   
   
   # *****************
@@ -280,7 +280,7 @@ walk(c("1.0", "2.0", "3.0"), function(wl_){
     split("stats") -> s_result
   
   func_write_nc_notime(s_result, 
-                       str_glue("{dir_bucket_mine}/results/global_remo_bootstrap/days-above-32C_stats-reg-regcm_{name_wl}C.nc"))
+                       str_glue("{dir_bucket_mine}/results/global_remo_bootstrap/{dom}_days-above-32C_stats-reg-regcm_{name_wl}C.nc"))
   
   
   
@@ -301,7 +301,7 @@ walk(c("1.0", "2.0", "3.0"), function(wl_){
     split("stats") -> s_result
   
   func_write_nc_notime(s_result, 
-                       str_glue("{dir_bucket_mine}/results/global_remo_bootstrap/days-above-32C_stats-reg-remo_{name_wl}C.nc"))
+                       str_glue("{dir_bucket_mine}/results/global_remo_bootstrap/{dom}_days-above-32C_stats-reg-remo_{name_wl}C.nc"))
   
   
   
@@ -317,7 +317,7 @@ walk(c("1.0", "2.0", "3.0"), function(wl_){
     st_apply(c(1,2), 
              function(x){
                
-               map_df(1:300, function(...){
+               map_df(1:500, function(...){
                  fn_statistics(x, sample(length(x), length(x), replace = T), j = T)
                }) %>% 
                  summarize(across(everything(), ~mean(.x) %>% round())) %>% 
@@ -330,7 +330,7 @@ walk(c("1.0", "2.0", "3.0"), function(wl_){
     split("stats") -> s_result # ~20 min 300 iterations
   
   func_write_nc_notime(s_result, 
-                       str_glue("{dir_bucket_mine}/results/global_remo_bootstrap/days-above-32C_stats-bootstd-remo_{name_wl}C.nc"))
+                       str_glue("{dir_bucket_mine}/results/global_remo_bootstrap/{dom}_days-above-32C_stats-bootstd-remo_{name_wl}C.nc"))
   
   
   
@@ -338,7 +338,7 @@ walk(c("1.0", "2.0", "3.0"), function(wl_){
   
   
   # REMO ENSEMBLE - PARAM BOOTSTRAP
-  c(360, 365.25, 365.25) %>% mean()
+  # c(360, 365.25, 365.25) %>% mean()
   
   fn_summarize <- function(x){
     
@@ -361,7 +361,7 @@ walk(c("1.0", "2.0", "3.0"), function(wl_){
     st_apply(c(1,2), 
              function(x){
                
-               map_df(1:300, function(...){
+               map_df(1:500, function(...){
                  fn_statistics(rbinom(length(x), 365, mean(x/365)))
                }) %>% 
                  summarize(across(everything(), ~fn_summarize(.x) %>% round())) %>% 
@@ -375,7 +375,7 @@ walk(c("1.0", "2.0", "3.0"), function(wl_){
   tictoc::toc()
   
   func_write_nc_notime(s_result, 
-                       str_glue("{dir_bucket_mine}/results/global_remo_bootstrap/days-above-32C_stats-bootparam-remo_{name_wl}C.nc"))
+                       str_glue("{dir_bucket_mine}/results/global_remo_bootstrap/{dom}_days-above-32C_stats-bootparam-remo_{name_wl}C.nc"))
   
   
   
@@ -390,6 +390,9 @@ l_s_wl %>%
   as_tibble() -> tb
 
 saveRDS(tb, "tb_tmp.rds")
+
+
+
 
 
 
