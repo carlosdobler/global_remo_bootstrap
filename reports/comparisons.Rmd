@@ -177,10 +177,10 @@ l_plots %>%
   patchwork::wrap_plots(ncol = 3)
 
 
-# tb %>% 
-#   filter(round(lat,1) == 33.1) %>% 
-#   pull(n_days) -> x
-# 
+tb %>%
+  filter(round(lat,1) == 33.1) %>%
+  pull(n_days) -> x
+
 # ks.test(jitter(x), "pbinom", size = 365, prob = mean(x/365))
 # ks.test(runif(63, min = min(x), max = max(x)),
 #         "pbinom", size = 365, prob = mean(x/365))
@@ -189,6 +189,8 @@ l_plots %>%
 # Ho: There is no difference between distributions/ data coms from the specified distribution
 # p-value < 0.05: reject null hypothesis (distributions are different)
 # p-value > 0.05: accept null hypothesis / no evidence against null hypothesis
+
+
 
 
 
