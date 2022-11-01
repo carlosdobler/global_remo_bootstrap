@@ -16,7 +16,18 @@ dir_results <- "/mnt/bucket_mine/results/global_remo_bootstrap"
 
 dir_results %>% 
   list.files(full.names = T) %>%
-  str_subset("2p0C") %>% 
+  str_subset("2p0C") %>%
+  str_subset("SAM", negate = T) -> ff 
+  
+ff %>% 
+  str_split("/", simplify = T) %>% 
+  .[,6] %>% 
+  str_replace_all("-", "_") %>% 
+  str_remove_all(".nc") %>% 
+  str_remove_all("days_above_32C_stats_") -> ff_names
+
+ff %>% 
+  set_names(ff_names) %>% 
   map(read_ncdf) -> l_s
 
 
@@ -43,13 +54,15 @@ fn_diff_plot <- function(m){
 
 ```
 
-Here I compare different ensembles of REMO/RegCM model output corresponding to days above 32 C in a 2C warming level over Europe.
+## EUROPE
+
+Here I compare different ensembles of REMO/RegCM model output corresponding to days above 32 C in a 2C warming level.
 
 The following three set of maps compare "raw" output between REMO (3 members), RegCM (3 members), and REMO+RegCM (6 members) ensembles. I show differences in the mean count of days above threshold, as well as percentiles 5th, 50th (median) and 95th.
 
 ```{r}
 
-l_s[[5]] - l_s[[3]] -> s_diff
+l_s$reg_remo_2p0C - l_s$reg_all_2p0C -> s_diff
 
 fn_diff_plot(s_diff) + 
   labs(title = "Fig. 1. Difference between [REMO] and [REMO+RegCM] ensembles")
@@ -60,7 +73,7 @@ fn_diff_plot(s_diff) +
 
 ```{r}
 
-l_s[[4]] - l_s[[3]] -> s_diff
+l_s$reg_regcm_2p0C - l_s$reg_all_2p0C -> s_diff
 
 fn_diff_plot(s_diff) +
   labs(title = "Fig. 2. Difference between [RegCM] and [REMO+RegCM] ensembles")
@@ -71,14 +84,14 @@ fn_diff_plot(s_diff) +
 
 ```{r}
 
-l_s[[4]] - l_s[[5]] -> s_diff
+l_s$reg_regcm_2p0C - l_s$reg_remo_2p0C -> s_diff
 
 fn_diff_plot(s_diff) +
   labs(title = "Fig. 3. Difference between [RegCM] and [REMO] ensembles")
 
 ```
 
-The maps above indicate that RegCM and REMO contribute in different ways to the full ensemble. Their different contribution is most evident in Figure 3. Overall, RegCM tends to run "cooler" (more days above threshold) over northern Africa than REMO. 
+The maps above indicate that RegCM and REMO contribute in different ways to the full ensemble. Their different contribution is most evident in Figure 3. Overall, RegCM tends to run "cooler" (less days above threshold) over northern Africa than REMO. 
 
 
 In the next set of maps I compare some of the previous maps with two bootstrapped experiments conducted with REMO. The first experiment represents a regular bootstrap. For each cell, I resampled the original sample of 63 observations (21 years x 3 REMO models) with replacement 1000 times. This means: imagine I have a bag of 63 balls, each one representing one observation (1 observation = the count of days above 32C in 1 year for 1 model). I randomly pick one ball, register its value, and return it to the bag. I do that 63 times. Then I calculate the mean and percentiles 5th, 50th and 95th out of those 63 observations. Then I re-do that 1000 times. Lastly, I calculate the mean of those 1000 means, 5th, 50th, and 95th percentiles.
@@ -86,7 +99,7 @@ In the next set of maps I compare some of the previous maps with two bootstrappe
 
 ```{r}
 
-l_s[[5]] - l_s[[2]] -> s_diff
+l_s$reg_remo_2p0C - l_s$bootstd_remo_2p0C -> s_diff
 
 fn_diff_plot(s_diff) +
   labs(title = "Fig. 4. Difference between [REMO] and\n[STD. BOOTSTRAPPED REMO] ensembles")
@@ -96,7 +109,7 @@ fn_diff_plot(s_diff) +
 
 ```{r}
 
-l_s[[3]] - l_s[[2]] -> s_diff
+l_s$reg_all_2p0C - l_s$bootstd_remo_2p0C -> s_diff
 
 fn_diff_plot(s_diff) +
   labs(title = "Fig. 5. Difference between [REMO+RegCM]\nand [STD. BOOTSTRAPPED REMO] ensembles")
@@ -181,12 +194,12 @@ l_plots %>%
 
 ```
 
-As mentioned above, from the fitted distribution I drew 1000 random samples of 63 observations and calculated the means of the 1000 means and percentiles. See below how that ensemble compares with the raw REMO ensemble.
+As mentioned above, from the fitted distribution I drew 1000 random samples of 63 observations and calculated the means of the 1000 means and percentiles. See below how that ensemble compares with the raw REMO ensemble and the full ensemble.
 
 
 ```{r}
 
-l_s[[5]] - select(l_s[[1]], c(2,5,8,11)) -> s_diff
+l_s$reg_remo_2p0C - select(l_s$bootparam_remo_2p0C, c(2,5,8,11)) -> s_diff
 
 fn_diff_plot(s_diff) +
   labs(title = "Fig. 6. Difference between [REMO] and\n[PARAM. BOOTSTRAPPED REMO] ensembles")
@@ -196,7 +209,7 @@ fn_diff_plot(s_diff) +
 
 ```{r}
 
-l_s[[3]] - select(l_s[[1]], c(2,5,8,11)) -> s_diff
+l_s$reg_all_2p0C - select(l_s$bootparam_remo_2p0C, c(2,5,8,11)) -> s_diff
 
 fn_diff_plot(s_diff) +
   labs(title = "Fig. 7. Difference between [REMO+RegCM]\nand [PARAM. BOOTSTRAPPED REMO] ensembles")
@@ -207,17 +220,17 @@ The following map compares the two bootstrap experiments:
 
 ```{r}
 
-l_s[[2]] - select(l_s[[1]], c(2,5,8,11)) -> s_diff
+l_s$bootstd_remo_2p0C - select(l_s$bootparam_remo_2p0C, c(2,5,8,11)) -> s_diff
 
 fn_diff_plot(s_diff) +
   labs(title = "Fig. 8. Difference between [STD. BOOTSTRAPPED REMO]\nand [PARAM. BOOTSTRAPPED REMO] ensembles")
 
 ```
 
-The bootstrapped ensembles seem to obtain similar mean values to the full ensemble (REMO + RegCM), although they deviate more over the tails (5th and 95th percentiles). Both bootstrapped ensembles run "hotter" in the 5th percentile than the full ensemble (particularly over northern Africa), and "cooler" in the 95th percentile (particularly over eastern Europe). Between both bootstrapped ensembles mean values are quite similar, but the standard one is "cooler" than the parametric in the 5th percentile, and "warmer" in the 95th percentile.
+The bootstrapped ensembles seem to obtain similar mean values to the full ensemble (REMO+RegCM), although they deviate more over the tails (5th and 95th percentiles). Both bootstrapped ensembles run "hotter" in the 5th percentile than the full ensemble (more days above threshold, particularly over northern Africa), and "cooler" in the 95th percentile (particularly over eastern Europe). Between both bootstrapped ensembles, mean values are quite similar, but the standard one is "cooler" than the parametric in the 5th percentile, and "warmer" in the 95th percentile.
 
 
-Another note: the 1000 means (or any of the percentiles) I obtain from bootstrapping are theoretically normally distributed. For example, this is the distribution of the 63 "raw" observations of one cell:
+Note: the 1000 means (or any of the percentiles) I obtain from bootstrapping are theoretically normally distributed. For example, this is the distribution of the 63 "raw" observations of one cell:
 
 ```{r, fig.height=3}
 
@@ -277,4 +290,107 @@ c("mean", "p05", "p95") %>%
 
 
 ```
+
+## SOUTH AMERICA
+
+Now I'll show same set of comparisons for SAM domain.
+
+```{r}
+
+dir_results %>% 
+  list.files(full.names = T) %>%
+  str_subset("2p0C") %>%
+  str_subset("SAM", negate = F) -> ff 
+  
+ff %>% 
+  str_split("/", simplify = T) %>% 
+  .[,6] %>% 
+  str_replace_all("-", "_") %>% 
+  str_remove_all(".nc") %>% 
+  str_remove_all("SAM_days_above_32C_stats_") -> ff_names
+
+ff %>% 
+  set_names(ff_names) %>% 
+  map(read_ncdf) -> l_s
+
+```
+
+
+```{r}
+
+l_s$reg_remo_2p0C - l_s$reg_all_2p0C -> s_diff
+
+fn_diff_plot(s_diff) + 
+  labs(title = "Fig. 1. Difference between [REMO] and [REMO+RegCM] ensembles")
+
+
+```
+
+
+```{r}
+
+l_s$reg_regcm_2p0C - l_s$reg_all_2p0C -> s_diff
+
+fn_diff_plot(s_diff) +
+  labs(title = "Fig. 2. Difference between [RegCM] and [REMO+RegCM] ensembles")
+
+```
+
+
+```{r}
+
+l_s$reg_regcm_2p0C - l_s$reg_remo_2p0C -> s_diff
+
+fn_diff_plot(s_diff) +
+  labs(title = "Fig. 3. Difference between [RegCM] and [REMO] ensembles")
+
+```
+
+
+```{r}
+
+l_s$reg_remo_2p0C - l_s$bootstd_remo_2p0C -> s_diff
+
+fn_diff_plot(s_diff) +
+  labs(title = "Fig. 4. Difference between [REMO] and\n[STD. BOOTSTRAPPED REMO] ensembles")
+
+```
+
+
+```{r}
+
+l_s$reg_all_2p0C - l_s$bootstd_remo_2p0C -> s_diff
+
+fn_diff_plot(s_diff) +
+  labs(title = "Fig. 5. Difference between [REMO+RegCM]\nand [STD. BOOTSTRAPPED REMO] ensembles")
+
+```
+
+```{r}
+
+l_s$reg_remo_2p0C - select(l_s$bootparam_remo_2p0C, c(2,5,8,11)) -> s_diff
+
+fn_diff_plot(s_diff) +
+  labs(title = "Fig. 6. Difference between [REMO] and\n[PARAM. BOOTSTRAPPED REMO] ensembles")
+
+```
+
+```{r}
+
+l_s$reg_all_2p0C - select(l_s$bootparam_remo_2p0C, c(2,5,8,11)) -> s_diff
+
+fn_diff_plot(s_diff) +
+  labs(title = "Fig. 7. Difference between [REMO+RegCM]\nand [PARAM. BOOTSTRAPPED REMO] ensembles")
+
+```
+
+```{r}
+
+l_s$bootstd_remo_2p0C - select(l_s$bootparam_remo_2p0C, c(2,5,8,11)) -> s_diff
+
+fn_diff_plot(s_diff) +
+  labs(title = "Fig. 8. Difference between [STD. BOOTSTRAPPED REMO]\nand [PARAM. BOOTSTRAPPED REMO] ensembles")
+
+```
+
 

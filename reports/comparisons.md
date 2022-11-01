@@ -3,8 +3,10 @@ Comparisons
 Carlos Dobler
 2022-10-27
 
+## EUROPE
+
 Here I compare different ensembles of REMO/RegCM model output
-corresponding to days above 32 C in a 2C warming level over Europe.
+corresponding to days above 32 C in a 2C warming level.
 
 The following three set of maps compare “raw” output between REMO (3
 members), RegCM (3 members), and REMO+RegCM (6 members) ensembles. I
@@ -19,7 +21,7 @@ percentiles 5th, 50th (median) and 95th.
 
 The maps above indicate that RegCM and REMO contribute in different ways
 to the full ensemble. Their different contribution is most evident in
-Figure 3. Overall, RegCM tends to run “cooler” (more days above
+Figure 3. Overall, RegCM tends to run “cooler” (less days above
 threshold) over northern Africa than REMO.
 
 In the next set of maps I compare some of the previous maps with two
@@ -59,7 +61,7 @@ found in a cell (solid line) and their fitted distribution (dashed).
 As mentioned above, from the fitted distribution I drew 1000 random
 samples of 63 observations and calculated the means of the 1000 means
 and percentiles. See below how that ensemble compares with the raw REMO
-ensemble.
+ensemble and the full ensemble.
 
 <img src="comparisons_files/figure-gfm/unnamed-chunk-7-1.png" width="90%" />
 
@@ -70,15 +72,15 @@ The following map compares the two bootstrap experiments:
 <img src="comparisons_files/figure-gfm/unnamed-chunk-9-1.png" width="90%" />
 
 The bootstrapped ensembles seem to obtain similar mean values to the
-full ensemble (REMO + RegCM), although they deviate more over the tails
+full ensemble (REMO+RegCM), although they deviate more over the tails
 (5th and 95th percentiles). Both bootstrapped ensembles run “hotter” in
-the 5th percentile than the full ensemble (particularly over northern
-Africa), and “cooler” in the 95th percentile (particularly over eastern
-Europe). Between both bootstrapped ensembles mean values are quite
-similar, but the standard one is “cooler” than the parametric in the 5th
-percentile, and “warmer” in the 95th percentile.
+the 5th percentile than the full ensemble (more days above threshold,
+particularly over northern Africa), and “cooler” in the 95th percentile
+(particularly over eastern Europe). Between both bootstrapped ensembles,
+mean values are quite similar, but the standard one is “cooler” than the
+parametric in the 5th percentile, and “warmer” in the 95th percentile.
 
-Another note: the 1000 means (or any of the percentiles) I obtain from
+Note: the 1000 means (or any of the percentiles) I obtain from
 bootstrapping are theoretically normally distributed. For example, this
 is the distribution of the 63 “raw” observations of one cell:
 
@@ -93,3 +95,23 @@ REMO, the mean count of days above 32C is between 174 and 178 with 95%
 confidence” (based on the left facet).
 
 <img src="comparisons_files/figure-gfm/unnamed-chunk-11-1.png" width="90%" />
+
+## SOUTH AMERICA
+
+Now I’ll show same set of comparisons for SAM domain.
+
+<img src="comparisons_files/figure-gfm/unnamed-chunk-13-1.png" width="90%" />
+
+<img src="comparisons_files/figure-gfm/unnamed-chunk-14-1.png" width="90%" />
+
+<img src="comparisons_files/figure-gfm/unnamed-chunk-15-1.png" width="90%" />
+
+<img src="comparisons_files/figure-gfm/unnamed-chunk-16-1.png" width="90%" />
+
+<img src="comparisons_files/figure-gfm/unnamed-chunk-17-1.png" width="90%" />
+
+<img src="comparisons_files/figure-gfm/unnamed-chunk-18-1.png" width="90%" />
+
+<img src="comparisons_files/figure-gfm/unnamed-chunk-19-1.png" width="90%" />
+
+<img src="comparisons_files/figure-gfm/unnamed-chunk-20-1.png" width="90%" />

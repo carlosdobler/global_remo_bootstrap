@@ -5,7 +5,7 @@ source("scripts/functions.R")
 plan(multicore)
 
 
-dom <- "EUR"
+dom <- "SAM"
 
 
 # DOWNLOAD RAW DATA -------------------------------------------------------------------------------
@@ -13,44 +13,44 @@ dom <- "EUR"
 dir_raw_data <- str_glue("{dir_pers_disk}/raw_data")
 
 {
-  # dir.create(dir_raw_data)
-  # 
-  # # Download REMO data
-  # 
-  # dir_tmp <- str_glue("{dir_bucket_cmip5}/RCM_regridded_data/REMO2015/{dom}/daily/maximum_temperature")
-  # 
-  # dir_tmp %>% 
-  #   list.files() %>% 
-  #   .[str_length(.) > 80] %>% 
-  #   
-  #   future_walk(function(f){
-  #     
-  #     
-  #     str_glue("{dir_tmp}/{f}") %>% 
-  #       {system(str_glue("gsutil cp {.} {dir_raw_data}"), ignore.stdout = T, ignore.stderr = T)}
-  #     
-  #     
-  #   })
-  # 
-  # 
-  # # Download RegCM4 data
-  # 
-  # dir_tmp <- str_glue("{dir_bucket_cmip5}/RCM_regridded_data/CORDEX_22/{dom}/daily/maximum_temperature")
-  # 
-  # dir_tmp %>% 
-  #   list.files() %>% 
-  #   .[str_length(.) > 80] %>% 
-  #   str_subset("EC-EARTH", negate = T) %>% 
-  #   str_subset("CERFACS", negate = T) %>% 
-  #   
-  #   future_walk(function(f){
-  #     
-  #     
-  #     str_glue("{dir_tmp}/{f}") %>% 
-  #       {system(str_glue("gsutil cp {.} {dir_raw_data}"), ignore.stdout = T, ignore.stderr = T)}
-  #     
-  #     
-  #   })
+  dir.create(dir_raw_data)
+
+  # Download REMO data
+
+  dir_tmp <- str_glue("{dir_bucket_cmip5}/RCM_regridded_data/REMO2015/{dom}/daily/maximum_temperature")
+
+  dir_tmp %>%
+    list.files() %>%
+    .[str_length(.) > 80] %>%
+
+    future_walk(function(f){
+
+
+      str_glue("{dir_tmp}/{f}") %>%
+        {system(str_glue("gsutil cp {.} {dir_raw_data}"), ignore.stdout = T, ignore.stderr = T)}
+
+
+    })
+
+
+  # Download RegCM4 data
+
+  dir_tmp <- str_glue("{dir_bucket_cmip5}/RCM_regridded_data/CORDEX_22/{dom}/daily/maximum_temperature")
+
+  dir_tmp %>%
+    list.files() %>%
+    .[str_length(.) > 80] %>%
+    str_subset("EC-EARTH", negate = T) %>%
+    str_subset("CERFACS", negate = T) %>%
+
+    future_walk(function(f){
+
+
+      str_glue("{dir_tmp}/{f}") %>%
+        {system(str_glue("gsutil cp {.} {dir_raw_data}"), ignore.stdout = T, ignore.stderr = T)}
+
+
+    })
 }
 
 
@@ -90,25 +90,25 @@ dir_derived <- str_glue("{dir_pers_disk}/derived")
 
 {
   
-  # dir.create(dir_derived)
-  # 
-  # future_pwalk(tb_models[3:6,], function(rcm, gcm, ...){
-  #   
-  #   ff <- 
-  #     dir_raw_data %>% 
-  #     list.files() %>% 
-  #     str_subset(rcm) %>% 
-  #     str_subset(gcm) %>% 
-  #     {str_glue("{dir_raw_data}/{.}")} %>% 
-  #     str_flatten(" ")
-  #   
-  #   outfile <- 
-  #     str_glue("{dir_derived}/days-gec-32deg_{rcm}_{gcm}.nc")
-  #   
-  #   str_glue("cdo -yearsum -gec,{lim_k} -cat {ff} {outfile}") %>% 
-  #     system()
-  #   
-  # })
+  dir.create(dir_derived)
+
+  future_pwalk(tb_models, function(rcm, gcm, ...){
+
+    ff <-
+      dir_raw_data %>%
+      list.files() %>%
+      str_subset(rcm) %>%
+      str_subset(gcm) %>%
+      {str_glue("{dir_raw_data}/{.}")} %>%
+      str_flatten(" ")
+
+    outfile <-
+      str_glue("{dir_derived}/days-gec-32deg_{rcm}_{gcm}.nc")
+
+    str_glue("cdo -yearsum -gec,{lim_k} -cat {ff} {outfile}") %>%
+      system()
+
+  })
   
 }
 
@@ -206,7 +206,7 @@ fn_statistics <- function(ts, index = seq_along(ts), j = F){
 
 
 
-walk(c("1.0", "2.0", "3.0")[3], function(wl_){
+walk(c("1.0", "2.0", "3.0")[2], function(wl_){
   
   # wl_ <- "3.0"
   
@@ -371,12 +371,11 @@ walk(c("1.0", "2.0", "3.0")[3], function(wl_){
              FUTURE = T,
              .fname = "stats") %>% 
     aperm(c(2,3,1)) %>% 
-    split("stats") -> s_result # 30 min
+    split("stats") -> s_result # 50 min
   tictoc::toc()
   
   func_write_nc_notime(s_result, 
                        str_glue("{dir_bucket_mine}/results/global_remo_bootstrap/{dom}_days-above-32C_stats-bootparam-remo_{name_wl}C.nc"))
-  
   
   
 })
